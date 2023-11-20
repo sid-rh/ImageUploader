@@ -1,0 +1,212 @@
+<!-- views/index.ejs -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Uploader</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js" integrity="sha512-9KkIqdfN7ipEW6B6k+Aq20PV31bjODg4AA52W+tYtAE0jE0kMx49bjJ3FgvS56wzmyfMUHbQ4Km2b7l9+Y/+Eg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" integrity="sha512-hvNR0F/e2J7zPPfLC9auFe3/SE0yG4aJCOd/qxew74NN7eyiSKjr7xJJMu1Jy2wf7FXITpWS1E/RY8yzuXN7VA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Include other head elements as needed -->
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">Image Uploader</a>
+    
+    <div class="ml-auto">
+      
+        <% if (user) { %>
+          <li class="nav-item">
+            <button class="btn btn-outline-danger" onclick="handleLogout()">Logout</button>
+          </li>
+        </div>
+      </nav>
+
+      <div class="container mt-4">
+        <h1 class="mb-4">Image Uploader</h1>
+    
+        <ul id="imageList" class="list-unstyled">
+          <% user.images.forEach(image => { %>
+            <li class="mb-3">
+              <img src="<%= image.path %>" id="<%= image.id %>" class="img-thumbnail" style="max-width: 150px;">
+              <button class="btn btn-danger ml-2" onclick="handleDelete('<%= image.id %>')">Delete</button>
+              <button class="btn btn-info ml-2" onclick="openModal('<%= image.id %>')">Edit</button>
+            </li>
+          <% }); %>
+        </ul>
+    
+        <form id="uploadForm" enctype="multipart/form-data" class="mt-4">
+          <div class="custom-file">
+            <input type="file" class="custom-file-input" name="image" accept="image/*" required>
+            <label class="custom-file-label">Choose file</label>
+          </div>
+          <button type="button" class="btn btn-success mt-2" onclick="handleUpload()">Upload Image</button>
+        </form>
+    
+        <div id="cropModal" class="modal" style="display: none;">
+          <div class="modal-overlay" onclick="closeModal()"></div>
+          <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Crop Image</h2>
+            <img id="modalImage" src="" alt="Image to Crop" class="img-fluid">
+            <button id="cropButton" class="btn btn-success">Crop and Save</button>
+          </div>
+        </div>
+      </div>
+        <% } else { %>
+          <li class="nav-item">
+            <button class="btn btn-outline-success" onclick="handleLogin()">Login with Google</button>
+          </li>
+      </div>
+    </nav>
+        <% } %>
+      
+
+ 
+
+  <script>
+    // Access user information on the frontend
+
+    
+    
+    
+    const user = JSON.stringify(user);
+
+      
+    console.log('User information:', user);
+
+    function handleLogin() {
+    window.location.href = '/auth/google';
+    }
+
+    function handleLogout()
+    {
+      window.location.href='/auth/logout';
+    }
+
+    function openModal(imageId) {
+      const imageSrc = document.getElementById(imageId).src;
+      document.getElementById('modalImage').src = imageSrc;
+      document.getElementById('cropModal').style.display = 'flex';
+
+      const existingCropper = document.getElementById('modalImage').cropper;
+    if (existingCropper) {
+      existingCropper.destroy();
+    }
+
+      initCropper(imageId);
+    }
+
+    function closeModal() {
+      document.getElementById('cropModal').style.display = 'none';
+    }
+
+    
+    function initCropper(imageId)
+    {
+      const image=document.getElementById('modalImage');
+      const cropper = new Cropper(image, {
+        aspectRatio: NaN, 
+        dragMode: 0,
+      });
+
+      document.getElementById('cropButton').addEventListener('click', () => {
+        const cropData = cropper.getData();
+
+        const roundedCropData = {
+        x: Math.round(cropData.x),
+        y: Math.round(cropData.y),
+        width: Math.round(cropData.width),
+        height: Math.round(cropData.height),
+        rotate: Math.round(cropData.rotate),
+        scaleX: Math.round(cropData.scaleX),
+        scaleY: Math.round(cropData.scaleY),
+      };
+
+        axios.post('/image/edit',{imageId:imageId,cropData:roundedCropData})
+        
+        .then(response => {
+          console.log(response.data.message);
+          console.log('Edited image path:', response.data.imagePath);  
+          document.getElementById(imageId).src = response.data.imagePath;
+
+
+          closeModal();
+        })
+        .catch(error => {
+          console.error('Error editing image:', error);
+        });
+      });
+    }
+
+    function handleUpload() {
+      const uploadForm = document.getElementById('uploadForm');
+      
+      console.log("upload")
+      const fileInput = uploadForm.querySelector('input[name="image"]');
+    const file = fileInput.files[0];
+
+    if (file) {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      axios.post('/image/upload', formData)
+        .then(response => {
+          console.log('Upload successful:', response.data);
+
+          const newImage = document.createElement('li');
+            newImage.innerHTML = `
+              
+              <img src="${response.data.path}" id="${response.data.id}" class="img-thumbnail" style="max-width: 150px;">
+              <button class="btn btn-danger ml-2" onclick="handleDelete('${response.data.id}')">Delete</button>
+              <button class="btn btn-info ml-2" onclick="openModal('${response.data.id}')">Edit</button>
+            `;
+
+            const imageList = document.getElementById('imageList');
+            imageList.appendChild(newImage);
+            
+          
+        })
+        .catch(error => {
+          console.error('Upload failed:', error);
+          
+        });
+    } else {
+      console.log('No file selected.');
+    }
+      
+    }
+
+    function handleDelete(imageId) {
+      try {
+        // Use Axios for the HTTP request to delete image
+        axios.post(`/image/delete`,{imageId:imageId}).then(response=>
+        {
+          console.log('Delete successful:', response.data);
+
+        
+          const deletedImage = document.querySelector(`img[id="${imageId}"]`);
+          if (deletedImage) {
+            deletedImage.parentElement.remove();
+          }
+          });
+        
+      } catch (error) {
+        console.error('Delete failed:', error);
+      }
+    }
+
+  
+    document.getElementById('uploadButton').addEventListener('click', handleUpload);
+
+  
+  </script>
+</body>
+</html>
